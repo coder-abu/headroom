@@ -576,6 +576,32 @@ def test_gemini_prompt_block_is_a_failed_outcome(wrapped):
     assert failed
 
 
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_gemini_stream_usage_is_read_through_the_response_envelope(wrapped):
+    import json
+
+    from headroom.proxy.handlers.streaming import StreamingMixin
+
+    usage = {
+        "promptTokenCount": 12000,
+        "candidatesTokenCount": 40,
+        "totalTokenCount": 12040,
+        "cachedContentTokenCount": 9000,
+    }
+    payload = {"candidates": [{"index": 0, "finishReason": "STOP"}], "usageMetadata": usage}
+    if wrapped:
+        payload = {"response": payload, "traceId": "trace-1"}
+    state = {"sse_buffer": bytearray(f"data: {json.dumps(payload)}\n\n".encode())}
+
+    usage_found = StreamingMixin()._parse_sse_usage_from_buffer(state, "gemini")
+
+    assert usage_found is not None
+    assert usage_found["input_tokens"] == 12000
+    assert usage_found["output_tokens"] == 40
+    assert usage_found["cache_read_input_tokens"] == 9000
+    assert state["stream_terminal"]
+
+
 def test_gemini_completion_requires_all_requested_candidates():
     from headroom.proxy.handlers.streaming import StreamingMixin
 

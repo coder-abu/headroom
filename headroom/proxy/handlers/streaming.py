@@ -445,7 +445,10 @@ class StreamingMixin:
                             )
 
             elif provider == "gemini":
-                usage_meta = _sse_dict(data.get("usageMetadata"))
+                # Cloud Code Assist (`/v1internal:streamGenerateContent`) wraps each
+                # chunk as {"response": {..., "usageMetadata": ...}, "traceId": ...};
+                # read usage from the same unwrapped payload as finishReason above.
+                usage_meta = _sse_dict(_gemini_response_data(data).get("usageMetadata"))
                 if usage_meta:
                     usage_found["input_tokens"] = usage_meta.get("promptTokenCount", 0)
                     usage_found["output_tokens"] = gemini_output_tokens(usage_meta)
